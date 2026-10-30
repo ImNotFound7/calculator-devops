@@ -21,14 +21,5 @@ hs_err_pid*
 *.pem
 *.key
 
-# Local assistant tools and working notes
-.agents/
-.codex/
-.claude/
-.superpowers/
-AGENTS.md
-CLAUDE.md
-SKILL.md
-docs/plans/
-docs/superpowers/
-graphify-out/
+# Course material (not part of the project)
+SPE_Mini_Project.docx
