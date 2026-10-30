@@ -1,27 +1,44 @@
 # Calculator DevOps
 
-CSE 816 Software Production Engineering mini-project: a Java calculator REST API with an automated Jenkins pipeline and Docker Compose deployment.
+A Spring Boot calculator REST API with a Jenkins CI/CD pipeline that builds, tests, containerises, publishes and deploys it with Docker Compose.
 
-The assignment requirements are in [SPE_Mini_Project.docx](SPE_Mini_Project.docx).
+CSE 816 Software Production Engineering mini-project, Term I 2026-27.
+**Author:** Digvijaysinh Pawar (IMT2023099)
 
-## Project scope
+| | |
+| --- | --- |
+| Report | [docs/project-report.pdf](docs/project-report.pdf) |
+| Docker Hub | [imnotfound/calculator-devops](https://hub.docker.com/r/imnotfound/calculator-devops) (tags = Jenkins build numbers) |
+| Screenshots | [docs/screenshots/](docs/screenshots/) |
 
-The assignment requires Spring Boot and Maven, four arithmetic endpoints, structured input validation, JUnit 5 tests, and an Actuator health endpoint. The Jenkins pipeline must check out, build, test, containerize, push to Docker Hub, deploy with Compose, verify health, and send build notifications.
+## Pipeline
 
-Deployment must include the calculator and a second component, such as an Nginx reverse proxy. Submission includes a short PDF report, screenshots, and a live demonstration of automatic deployment after a GitHub push.
+```mermaid
+flowchart LR
+    GitHub -->|Poll SCM| Checkout --> Build --> Test --> DockerBuild[Docker Build] --> Push[Push to Docker Hub] --> Deploy[Compose Deploy + health check]
+    Deploy --> Email[Email notification]
+    Client --> Nginx --> API[Calculator API]
+```
+
+A push to `main` is picked up by Jenkins (Poll SCM, every 2 minutes), which runs the stages in the [`Jenkinsfile`](Jenkinsfile):
+
+| Stage | What it does |
+| --- | --- |
+| Checkout | `checkout scm` |
+| Build | `mvn clean package -DskipTests` |
+| Test | `mvn test`, publishes `target/surefire-reports/TEST-*.xml`; a failing test stops the pipeline |
+| Docker Build | builds `imnotfound/calculator-devops:<BUILD_NUMBER>` |
+| Push | logs in with the Jenkins `dockerhub` credential and pushes the image |
+| Deploy | `docker compose up -d --no-build --wait`, then checks `/actuator/health` through Nginx |
+| Post | emails the build result; prints Compose logs on failure |
 
 ## Prerequisites
 
-- JDK 17 and Maven 3.6.3 or newer for the application.
-- Git and a GitHub repository for version control.
-- Docker Engine and Docker Compose for container deployment.
-- Jenkins with Java 17, Maven, Docker access, GitHub access, Docker Hub credentials, and email delivery configured.
+- JDK 17 and Maven 3.6.3+ (`mvn -version` must report Java 17; Maven follows `JAVA_HOME`)
+- Docker Engine with Docker Compose v2
+- Jenkins (only for the pipeline)
 
-Maven uses `JAVA_HOME`. Ensure `mvn -version` reports Java 17 or newer, even if `java -version` already does.
-
-## Build and test
-
-Set `JAVA_HOME` to your JDK 17 installation, then run:
+## Build, test and run
 
 ```bash
 mvn clean package
@@ -29,7 +46,7 @@ mvn test
 java -jar target/calculator.jar --server.port=8081
 ```
 
-The JUnit 5 unit and Spring MVC integration tests cover all operations, validation, division by zero, and health. Jenkins can publish the XML reports from `target/surefire-reports/TEST-*.xml`.
+There are 31 JUnit 5 tests: unit tests for `CalculatorService` and MockMvc integration tests for the REST endpoints and the health endpoint.
 
 ## API
 
@@ -43,91 +60,50 @@ The JUnit 5 unit and Spring MVC integration tests cover all operations, validati
 
 ```bash
 curl 'http://localhost:8081/api/v1/add?a=2&b=3'
+# {"operation":"add","a":2.0,"b":3.0,"result":5.0}
+
 curl 'http://localhost:8081/api/v1/divide?a=1&b=0'
-curl 'http://localhost:8081/actuator/health'
+# HTTP 400
+# {"type":"about:blank","title":"Bad Request","status":400,"detail":"Division by zero is not allowed.","instance":"/api/v1/divide"}
 ```
 
-Successful calculations return JSON:
+Missing, empty, non-numeric or non-finite parameters, division by zero, and results that overflow also return HTTP 400 with a problem-detail body. Unknown operations return 404. Calculations use Java `double`.
 
-```json
-{"operation":"add","a":2.0,"b":3.0,"result":5.0}
-```
-
-Missing, empty, non-numeric, and non-finite parameters, division by zero, and numeric overflow return HTTP 400 with a problem-detail JSON body:
-
-```json
-{"type":"about:blank","title":"Bad Request","status":400,"detail":"Division by zero is not allowed.","instance":"/api/v1/divide"}
-```
-
-Calculations use Java `double` arithmetic. Decimal results follow floating-point precision, so values such as `0.1 + 0.2` may have small rounding differences. Unknown operations return HTTP 404.
-
-## Docker and Compose
-
-```bash
-docker compose up -d --build --wait
-curl 'http://localhost:8081/api/v1/add?a=2&b=3'
-docker compose ps
-docker compose logs
-docker compose down
-```
-
-Compose starts the API and an Nginx reverse proxy on a dedicated network. Both services have health checks and restart policies. Nginx waits for the API to become healthy. Only the proxy is published, at `127.0.0.1:8081`; set `APP_PORT` to choose another host port.
-
-The Dockerfile caches Maven dependencies in a build stage and copies only the executable JAR into a JRE runtime stage. The API runs as the `calculator` user. `.dockerignore` restricts the build context to the Maven file and application sources.
-
-To run the image without Compose:
+## Docker
 
 ```bash
 docker build -t calculator-devops:local .
 docker run --rm -p 127.0.0.1:8081:8080 calculator-devops:local
 ```
 
-To deploy a published build instead of building locally:
+The Dockerfile is multi-stage: a Maven/JDK stage builds the JAR (dependencies cached in their own layer), and a JRE stage runs it as the non-root `calculator` user. `.dockerignore` limits the build context to `pom.xml` and `src/`.
+
+## Docker Compose
 
 ```bash
-export CALCULATOR_IMAGE=imnotfound/calculator-devops:BUILD_NUMBER
-docker compose pull
-docker compose up -d --no-build --wait --wait-timeout 120
+docker compose up -d --build --wait
+curl 'http://localhost:8081/actuator/health'
+docker compose ps
+docker compose down
 ```
 
-Replace `BUILD_NUMBER` with an existing Jenkins build tag. Rerunning `up` keeps the existing deployment when its configuration and image have not changed. Updating the image replaces the API container; Nginx refreshes Docker DNS so it can reach the replacement.
+Compose starts the API and an Nginx reverse proxy on a private network, both with health checks and `restart: unless-stopped`. Nginx starts once the API is healthy and is the only service published on the host (`127.0.0.1:8081`; set `APP_PORT` to change the port).
 
-## Jenkins
+To deploy an image already published by Jenkins:
 
-```mermaid
-flowchart LR
-    GitHub -->|SCM polling| Checkout --> Build --> Test
-    Test --> DockerBuild[Docker Build] --> Push[Docker Hub Push] --> Deploy[Compose Deploy]
-    Deploy --> Health[Health Checks]
-    Jenkins --> Email[Gmail Notification]
-    Client --> Nginx --> API[Calculator API]
+```bash
+CALCULATOR_IMAGE=imnotfound/calculator-devops:<build-number> docker compose up -d --no-build --wait
 ```
 
-The checked-in declarative `Jenkinsfile` defines Checkout, Build, Test, Docker Build, Push, and Deploy stages. Build runs `mvn clean package -DskipTests`; Test runs `mvn test` and always publishes JUnit XML reports. A test failure prevents image publication and deployment.
+## Jenkins setup
 
-Images are tagged `imnotfound/calculator-devops:<Jenkins build number>`. Deployment waits for both containers to become healthy and probes health through the proxy. Concurrent runs are queued to protect the shared Compose deployment. The pipeline sends its final status by email on success or failure.
+1. Install the plugins Pipeline, Git, JUnit, Credentials Binding, Email Extension and Timestamper.
+2. Under *Tools*, add a JDK named `JDK17` and a Maven installation named `Maven3`. The agent also needs Git, the Docker CLI and Docker Compose v2.
+3. Add credentials (*Username with password*):
+   - `dockerhub`: Docker Hub username and an access token with push permission
+   - `calculator-smtp`: Gmail address and a Gmail app password
+4. Under *Extended E-mail Notification*, set SMTP host `smtp.gmail.com`, port 587, TLS, and the `calculator-smtp` credential.
+5. Create a Pipeline job `calculator-devops`: *Pipeline script from SCM*, repository `https://github.com/ImNotFound7/calculator-devops.git`, branch `*/main`, script path `Jenkinsfile`.
+6. Run the job once to register the Poll SCM trigger. Later pushes to `main` start builds automatically.
 
-Configure Jenkins as follows:
-
-1. Install Pipeline, Git, JUnit, Credentials Binding, Email Extension, and Timestamper plugins.
-2. Register tools named `JDK17` and `Maven3` pointing to JDK 17 and Maven installations. The agent must have Git, the Docker CLI, Docker Compose v2 with `--wait` support, and access to the deployment Docker daemon. The supplied pipeline also searches the common Homebrew and Docker Desktop CLI directories on macOS.
-3. Add a **Username with password** credential with ID `dockerhub`: Docker Hub username `imnotfound` and a Docker Hub access token with image push permissions.
-4. Add a **Username with password** credential with ID `calculator-smtp`: username `digvijaysinhsp149@gmail.com` and a Gmail app password. In Extended E-mail Notification, set host `smtp.gmail.com`, port `587`, TLS enabled, this credential, and sender address `digvijaysinhsp149@gmail.com`. Notifications go to the same Gmail address.
-5. Create a Pipeline job named `calculator-devops`. Select **Pipeline script from SCM**, Git, repository `https://github.com/ImNotFound7/calculator-devops.git`, branch `*/main`, and script path `Jenkinsfile`. The public repository needs no checkout credential. If using a private copy, configure GitHub read access through the Jenkins user's Git credential helper or a Jenkins-managed credential selected in the SCM settings.
-6. Run the job once to register its polling trigger. Subsequent GitHub changes are detected automatically every two minutes using Poll SCM, which the assignment permits. Keep Jenkins and Docker running for the live demo.
-
-The deployment runs on the same Docker daemon used by the Jenkins agent. With Docker Desktop, allow sharing of the Jenkins workspace directory so the Nginx configuration can be mounted. On a remote daemon, that directory must exist on the daemon host too.
-
-Credentials stay in Jenkins, outside the repository. Image push uses a temporary Docker authentication directory and removes it afterward.
-
-## Submission material
-
-- Verification on 30 October 2026: Jenkins build #3 started automatically from an SCM change, passed all 31 tests, published image `:3`, deployed both healthy services, and delivered its success notification to Gmail.
-- [Project report](docs/project-report.pdf): architecture, pipeline stages, verification, and challenges.
-- [Screenshots](docs/screenshots/): captured project evidence.
-- [Docker Hub image](https://hub.docker.com/r/imnotfound/calculator-devops): public images tagged with the Jenkins build number.
-- [Implementation pull request](https://github.com/ImNotFound7/calculator-devops/pull/1): feature branch and merge history.
-
-The GitHub repository and Docker Hub image repository are public for evaluation.
-
-Only project source, tests, deployment configuration, and project documentation belong in version control. Build output, credentials, local assistant files, and planning notes are excluded.
+No credentials are stored in this repository; they live only in the Jenkins credentials store.
