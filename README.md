@@ -120,14 +120,3 @@ The deployment runs on the same Docker daemon used by the Jenkins agent. With Do
 
 Credentials stay in Jenkins, outside the repository. Image push uses a temporary Docker authentication directory and removes it afterward.
 
-## Submission material
-
-- Verification on 30 October 2026: Jenkins build #3 started automatically from an SCM change, passed all 31 tests, published image `:3`, deployed both healthy services, and delivered its success notification to Gmail.
-- [Project report](docs/project-report.pdf): architecture, pipeline stages, verification, and challenges.
-- [Screenshots](docs/screenshots/): captured project evidence.
-- [Docker Hub image](https://hub.docker.com/r/imnotfound/calculator-devops): public images tagged with the Jenkins build number.
-- [Implementation pull request](https://github.com/ImNotFound7/calculator-devops/pull/1): feature branch and merge history.
-
-The GitHub repository and Docker Hub image repository are public for evaluation.
-
-Only project source, tests, deployment configuration, and project documentation belong in version control. Build output, credentials, local assistant files, and planning notes are excluded.
