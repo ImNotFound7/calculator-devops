@@ -72,6 +72,7 @@ pipeline {
                 sh '''
                     docker compose up -d --no-build --wait --wait-timeout 120
                     docker compose exec -T proxy wget -q -O - http://127.0.0.1/actuator/health
+                    docker ps --filter label=com.docker.compose.project=calculator-devops
                 '''
             }
         }

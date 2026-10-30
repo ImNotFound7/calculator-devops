@@ -120,4 +120,13 @@ The deployment runs on the same Docker daemon used by the Jenkins agent. With Do
 
 Credentials stay in Jenkins, outside the repository. Image push uses a temporary Docker authentication directory and removes it afterward.
 
+## Submission material
+
+- [Project report](docs/project-report.pdf): architecture, pipeline stages, verification, and challenges.
+- [Screenshots](docs/screenshots/): captured project evidence.
+- [Docker Hub image](https://hub.docker.com/r/imnotfound/calculator-devops): public images tagged with the Jenkins build number.
+- [Implementation pull request](https://github.com/ImNotFound7/calculator-devops/pull/1): feature branch and merge history.
+
+The GitHub repository is private. Grant the evaluator repository access before submission.
+
 Only project source, tests, deployment configuration, and project documentation belong in version control. Build output, credentials, local assistant files, and planning notes are excluded.
