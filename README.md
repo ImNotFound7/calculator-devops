@@ -113,7 +113,7 @@ Configure Jenkins as follows:
 2. Register tools named `JDK17` and `Maven3` pointing to JDK 17 and Maven installations. The agent must have Git, the Docker CLI, Docker Compose v2 with `--wait` support, and access to the deployment Docker daemon. The supplied pipeline also searches the common Homebrew and Docker Desktop CLI directories on macOS.
 3. Add a **Username with password** credential with ID `dockerhub`: Docker Hub username `imnotfound` and a Docker Hub access token with image push permissions.
 4. Add a **Username with password** credential with ID `calculator-smtp`: username `digvijaysinhsp149@gmail.com` and a Gmail app password. In Extended E-mail Notification, set host `smtp.gmail.com`, port `587`, TLS enabled, this credential, and sender address `digvijaysinhsp149@gmail.com`. Notifications go to the same Gmail address.
-5. Create a Pipeline job named `calculator-devops`. Select **Pipeline script from SCM**, Git, repository `https://github.com/ImNotFound7/calculator-devops.git`, branch `*/main`, and script path `Jenkinsfile`. The private repository requires GitHub read access through the Jenkins user's existing Git credential helper or a Jenkins-managed GitHub credential selected in the SCM settings.
+5. Create a Pipeline job named `calculator-devops`. Select **Pipeline script from SCM**, Git, repository `https://github.com/ImNotFound7/calculator-devops.git`, branch `*/main`, and script path `Jenkinsfile`. The public repository needs no checkout credential. If using a private copy, configure GitHub read access through the Jenkins user's Git credential helper or a Jenkins-managed credential selected in the SCM settings.
 6. Run the job once to register its polling trigger. Subsequent GitHub changes are detected automatically every two minutes using Poll SCM, which the assignment permits. Keep Jenkins and Docker running for the live demo.
 
 The deployment runs on the same Docker daemon used by the Jenkins agent. With Docker Desktop, allow sharing of the Jenkins workspace directory so the Nginx configuration can be mounted. On a remote daemon, that directory must exist on the daemon host too.
@@ -128,6 +128,6 @@ Credentials stay in Jenkins, outside the repository. Image push uses a temporary
 - [Docker Hub image](https://hub.docker.com/r/imnotfound/calculator-devops): public images tagged with the Jenkins build number.
 - [Implementation pull request](https://github.com/ImNotFound7/calculator-devops/pull/1): feature branch and merge history.
 
-The GitHub repository is private. Grant the evaluator repository access before submission.
+The GitHub repository and Docker Hub image repository are public for evaluation.
 
 Only project source, tests, deployment configuration, and project documentation belong in version control. Build output, credentials, local assistant files, and planning notes are excluded.
