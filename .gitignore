@@ -1,0 +1,34 @@
+# Java and Maven build output
+target/
+*.class
+*.log
+hs_err_pid*
+
+# IDE and operating system files
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+.DS_Store
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+.aws/
+*.pem
+*.key
+
+# Local assistant tools and working notes
+.agents/
+.codex/
+.claude/
+.superpowers/
+AGENTS.md
+CLAUDE.md
+SKILL.md
+docs/plans/
+docs/superpowers/
+graphify-out/
