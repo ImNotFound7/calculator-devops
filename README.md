@@ -122,6 +122,7 @@ Credentials stay in Jenkins, outside the repository. Image push uses a temporary
 
 ## Submission material
 
+- Verification on 30 October 2026: Jenkins build #3 started automatically from an SCM change, passed all 31 tests, published image `:3`, deployed both healthy services, and delivered its success notification to Gmail.
 - [Project report](docs/project-report.pdf): architecture, pipeline stages, verification, and challenges.
 - [Screenshots](docs/screenshots/): captured project evidence.
 - [Docker Hub image](https://hub.docker.com/r/imnotfound/calculator-devops): public images tagged with the Jenkins build number.
